@@ -1,0 +1,10 @@
+{
+  "CreateTime": 1737562640559,
+  "headers": {
+    "singularityheader": "some header"
+  },
+  "key": "DK0015989610_XXXX_DKK",
+  "offset": 1859780,
+  "partition": 1,
+  "topic": "INSTRUMENT-PRICES"
+}
