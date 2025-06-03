@@ -1,0 +1,187 @@
+version: 2
+
+semantic_models:
+  - name: price_master_extrapolated
+    description: "Semantic model for extrapolated price master data with instrument pricing information"
+    model: ref('price_master_extrapolated_agg')
+    
+    # Define the grain - primary key combination
+    primary_entity: price_record
+    
+    # Entities (dimensions that define the grain)
+    entities:
+      - name: price_record
+        type: primary
+        expr: concat(isin, '|', trading_currency, '|', market_mic, '|', price_type, '|', price_date, '|', price_date_source, '|', latest_price_source, '|', calendar_date)
+      
+      - name: instrument
+        type: foreign
+        expr: isin
+        
+      - name: market
+        type: foreign
+        expr: market_mic
+        
+      - name: currency
+        type: foreign
+        expr: trading_currency
+
+    # Dimensions
+    dimensions:
+      - name: isin
+        type: categorical
+        description: "International Securities Identification Number"
+        
+      - name: trading_currency
+        type: categorical
+        description: "Currency in which the instrument is traded"
+        
+      - name: market_mic
+        type: categorical
+        description: "Market Identifier Code"
+        
+      - name: price_type
+        type: categorical
+        description: "Type of price (e.g., bid, ask, mid, close)"
+        
+      - name: price_date_source
+        type: categorical
+        description: "Source system providing the price date"
+        
+      - name: latest_price_source
+        type: categorical
+        description: "Most recent source of price information"
+        
+      - name: price_method
+        type: categorical
+        description: "Method used for price calculation/extrapolation"
+        
+      - name: price_date
+        type: time
+        type_params:
+          time_granularity: day
+        description: "Date of the price observation"
+        
+      - name: calendar_date
+        type: time
+        type_params:
+          time_granularity: day
+        description: "Calendar date for reporting purposes"
+        
+      - name: message_create_date
+        type: time
+        type_params:
+          time_granularity: day
+        description: "Date when the message was created"
+        
+      - name: maturity_extrapolated_date
+        type: time
+        type_params:
+          time_granularity: day
+        description: "Extrapolated maturity date of the instrument"
+        
+      - name: message_create_time
+        type: time
+        type_params:
+          time_granularity: hour
+        description: "Timestamp when the message was created"
+        
+      - name: valid_to
+        type: time
+        type_params:
+          time_granularity: hour
+        description: "Timestamp until which the price is valid"
+
+    # Measures
+    measures:
+      - name: avg_price_value
+        agg: average
+        expr: price_value
+        description: "Average price value across instruments"
+        
+      - name: price_factor
+        agg: sum
+        description: "Price adjustment factor"
+        
+      - name: avg_price_factor
+        agg: average
+        expr: price_factor
+        description: "Average price factor"
+        
+      - name: weekly_avg_price_value
+        agg: average
+        description: "Weekly average price value"
+        expr: |
+          avg(price_value) over (
+            partition by isin, trading_currency, market_mic, price_type, price_date_source, latest_price_source, calendar_date,
+            date_trunc('week', price_date)
+          )
+          
+      - name: monthly_avg_price_value
+        agg: average
+        description: "Monthly average price value"
+        expr: |
+          avg(price_value) over (
+            partition by isin, trading_currency, market_mic, price_type, price_date_source, latest_price_source, calendar_date,
+            date_trunc('month', price_date)
+          )
+        
+      - name: date_diff
+        agg: average
+        expr: date_diff
+        description: "Average date difference"
+        
+      - name: record_count
+        agg: count
+        description: "Total number of price records"
+        
+      - name: unique_instruments
+        agg: count_distinct
+        expr: isin
+        description: "Count of distinct instruments"
+        
+      - name: unique_markets
+        agg: count_distinct
+        expr: market_mic
+        description: "Count of distinct markets"
+        
+      - name: unique_currencies
+        agg: count_distinct
+        expr: trading_currency
+        description: "Count of distinct trading currencies"
+        
+      - name: daily_price_change_pct
+        agg: average
+        description: "Average daily price change as percentage"
+        expr: |
+          (price_value - lag(price_value, 1) over (
+            partition by isin, trading_currency, market_mic, price_type, price_date_source, latest_price_source, calendar_date
+            order by price_date
+          )) / nullif(lag(price_value, 1) over (
+            partition by isin, trading_currency, market_mic, price_type, price_date_source, latest_price_source, calendar_date
+            order by price_date
+          ), 0) * 100
+          
+      - name: max_daily_price_change_pct
+        agg: max
+        description: "Maximum daily price change percentage"
+        expr: |
+          (price_value - lag(price_value, 1) over (
+            partition by isin, trading_currency, market_mic, price_type, price_date_source, latest_price_source, calendar_date
+            order by price_date
+          )) / nullif(lag(price_value, 1) over (
+            partition by isin, trading_currency, market_mic, price_type, price_date_source, latest_price_source, calendar_date
+            order by price_date
+          ), 0) * 100
+          
+      - name: min_daily_price_change_pct
+        agg: min
+        description: "Minimum daily price change percentage"
+        expr: |
+          (price_value - lag(price_value, 1) over (
+            partition by isin, trading_currency, market_mic, price_type, price_date_source, latest_price_source, calendar_date
+            order by price_date
+          )) / nullif(lag(price_value, 1) over (
+            partition by isin, trading_currency, market_mic, price_type, price_date_source, latest_price_source, calendar_date
+            order by price_date
+          ), 0) * 100
